@@ -1,0 +1,11 @@
+shiro:
+  web:
+    enabled: true
+  loginUrl: /login
+casdoor:
+  endpoint: http://localhost:8000
+  client-id: feb78fa7e8a5bafb5b25
+  client-secret: d534dddebe15243c93310e569fba32e45aa20ff4
+  jwt-secret: CasdoorSecret
+  organization-name: built-in
+  application-name: app-built-in
