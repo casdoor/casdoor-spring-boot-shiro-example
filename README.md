@@ -1,6 +1,6 @@
 # Shiro
 
-Casdoor can use OIDC protocol as IDP to connect various applications. Here we will use Shiro as an example to show you how to use OIDC to connect to your applications.
+Casdoor can use OIDC protocol as IDP to connect various applications. Here we will use Shiro as an example to show you how to use OIDC to connect to your applications. And the official [shiro-casdoor](https://github.com/casdoor/shiro-casdoor) middleware makes the integration of Shiro and Casdoor easier.
 
 ## Step1. Deploy Casdoor
 
@@ -42,9 +42,9 @@ casdoor:
   endpoint: http://localhost:8000
   client-id: <Client ID>
   client-secret: <Client Secret>
-  jwt-secret: CasdoorSecret
+  jwt-public-key: <JWT Public Key>
   organization-name: built-in
-  application-name: app-built-in
+  application-name: <Application Name>
 ```
 
 ## Step4. Get Started with A Demo
@@ -65,41 +65,26 @@ public ShiroFilterChainDefinition shiroFilterChainDefinition() {
 }
 ```
 
-3. Create custom realm and config `DefaultWebSecurityManager` as below.
+3. Init the shiro-casdoor middleware and config `DefaultWebSecurityManager` as below.
 
 ```java
-public class AccountRealm extends AuthorizingRealm {
+@Resource
+private CasdoorConfig casdoorConfig;
 
-    @Resource
-    private CasdoorAuthService casdoorAuthService;
-
-    public AccountRealm() {
-        setAuthenticationTokenClass(BearerToken.class);
-    }
-
-    @Override
-    protected AuthorizationInfo doGetAuthorizationInfo(PrincipalCollection principalCollection) {
-        return null;
-    }
-
-    @Override
-    protected AuthenticationInfo doGetAuthenticationInfo(AuthenticationToken authenticationToken) throws AuthenticationException {
-        BearerToken token = (BearerToken) authenticationToken;
-        CasdoorUser user = null;
-        try {
-            user = casdoorAuthService.parseJwtToken(token.getToken());
-        } catch (ParseException | InvocationTargetException | IllegalAccessException e) {
-            e.printStackTrace();
-        }
-        SecurityUtils.getSubject().getSession().setAttribute("name", user.getName());
-        return new SimpleAuthenticationInfo(user, token.getCredentials(), getName());
-    }
-}
-```
-
-```java
 @Bean
-public DefaultWebSecurityManager securityManager(AccountRealm accountRealm) {
+CasdoorShiroRealm simpleAccountRealm() {
+    return new CasdoorShiroRealm(
+        casdoorConfig.getEndpoint(),
+        casdoorConfig.getClientId(),
+        casdoorConfig.getClientSecret(),
+        casdoorConfig.getJwtPublicKey(),
+        casdoorConfig.getOrganizationName(),
+        casdoorConfig.getApplicationName()
+    );
+}
+
+@Bean
+public DefaultWebSecurityManager securityManager(CasdoorShiroRealm accountRealm) {
     DefaultWebSecurityManager securityManager = new DefaultWebSecurityManager();
     securityManager.setRealm(accountRealm);
     return securityManager;
@@ -119,7 +104,7 @@ public String doLogin(String code, String state) throws OAuthProblemException, O
     String token = casdoorAuthService.getOAuthToken(code, state);
     BearerToken bearerToken = new BearerToken(token);
     SecurityUtils.getSubject().login(bearerToken);
-    return "redirect:http://localhost:8080/index";
+    return "redirect:http://localhost:8080/foos";
 }
 ```
 

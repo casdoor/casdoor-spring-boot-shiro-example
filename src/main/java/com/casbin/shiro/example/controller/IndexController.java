@@ -14,10 +14,9 @@
 package com.casbin.shiro.example.controller;
 
 import com.casbin.shiro.example.dao.FooModel;
-import org.apache.oltu.oauth2.common.exception.OAuthProblemException;
-import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.apache.shiro.SecurityUtils;
 import org.apache.shiro.authc.BearerToken;
+import org.casbin.casdoor.entity.CasdoorUser;
 import org.casbin.casdoor.service.CasdoorAuthService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -25,7 +24,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import javax.annotation.Resource;
-import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -55,15 +53,18 @@ public class IndexController {
     }
 
     @RequestMapping("/login")
-    public String login() throws UnsupportedEncodingException {
+    public String login() {
         return "redirect:" + casdoorAuthService.getSigninUrl("http://localhost:8080/login/oauth2");
     }
 
     @RequestMapping("/login/oauth2")
-    public String doLogin(String code, String state) throws OAuthProblemException, OAuthSystemException {
+    public String doLogin(String code, String state) {
         String token = casdoorAuthService.getOAuthToken(code, state);
         BearerToken bearerToken = new BearerToken(token);
         SecurityUtils.getSubject().login(bearerToken);
-        return "redirect:http://localhost:8080/index";
+        CasdoorUser casdoorUser = (CasdoorUser) SecurityUtils.getSubject().getPrincipal();
+        System.out.println(casdoorUser);
+        SecurityUtils.getSubject().getSession().setAttribute("name", casdoorUser.getName());
+        return "redirect:http://localhost:8080/foos";
     }
 }

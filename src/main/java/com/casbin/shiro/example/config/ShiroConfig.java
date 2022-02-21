@@ -13,12 +13,15 @@
 // limitations under the License.
 package com.casbin.shiro.example.config;
 
-import com.casbin.shiro.example.realm.AccountRealm;
 import org.apache.shiro.spring.web.config.DefaultShiroFilterChainDefinition;
 import org.apache.shiro.spring.web.config.ShiroFilterChainDefinition;
 import org.apache.shiro.web.mgt.DefaultWebSecurityManager;
+import org.casbin.casdoor.config.CasdoorConfig;
+import org.casbin.casdoor.shiro.CasdoorShiroRealm;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import javax.annotation.Resource;
 
 /**
  * @author Yixiang Zhao (@seriouszyx)
@@ -27,13 +30,23 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class ShiroConfig {
 
+    @Resource
+    private CasdoorConfig casdoorConfig;
+
     @Bean
-    AccountRealm simpleAccountRealm() {
-        return new AccountRealm();
+    CasdoorShiroRealm simpleAccountRealm() {
+        return new CasdoorShiroRealm(
+                casdoorConfig.getEndpoint(),
+                casdoorConfig.getClientId(),
+                casdoorConfig.getClientSecret(),
+                casdoorConfig.getJwtPublicKey(),
+                casdoorConfig.getOrganizationName(),
+                casdoorConfig.getApplicationName()
+        );
     }
 
     @Bean
-    public DefaultWebSecurityManager securityManager(AccountRealm accountRealm) {
+    public DefaultWebSecurityManager securityManager(CasdoorShiroRealm accountRealm) {
         DefaultWebSecurityManager securityManager = new DefaultWebSecurityManager();
         securityManager.setRealm(accountRealm);
         return securityManager;
