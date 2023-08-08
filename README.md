@@ -6,7 +6,7 @@ Casdoor can use OIDC protocol as IDP to connect various applications. Here we wi
 
 Firstly, the Casdoor should be deployed.
 
-You can refer to the Casdoor official documentation for the [Server Installation](https://casdoor.com/docs/basic/server-installation).
+You can refer to the Casdoor official documentation for the [Server Installation](https://casdoor.org/docs/basic/server-installation).
 
 After a successful deployment, you need to ensure:
 
