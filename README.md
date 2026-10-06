@@ -1,238 +1,90 @@
-# Shiro
+# Casdoor Spring Boot Shiro Example
 
-Casdoor can use OIDC protocol as IDP to connect various applications. Here we will use Shiro as an example to show you how to use OIDC to connect to your applications. And the official [shiro-casdoor](https://github.com/casdoor/shiro-casdoor) middleware makes the integration of Shiro and Casdoor easier.
+[![Build](https://github.com/casdoor/casdoor-spring-boot-shiro-example/actions/workflows/build.yml/badge.svg)](https://github.com/casdoor/casdoor-spring-boot-shiro-example/actions/workflows/build.yml)
+[![License](https://img.shields.io/github/license/casdoor/casdoor-spring-boot-shiro-example)](https://github.com/casdoor/casdoor-spring-boot-shiro-example/blob/master/LICENSE)
+[![Discord](https://img.shields.io/discord/1022748306096537660?logo=discord&label=discord&color=5865F2)](https://discord.gg/5rPsrAzK7S)
 
-## Step1. Deploy Casdoor
+An example [Apache Shiro](https://shiro.apache.org/) app on Spring Boot 3 that signs users in with [Casdoor](https://casdoor.ai/), using [casdoor-spring-boot-starter](https://github.com/casdoor/casdoor-spring-boot-starter).
 
-Firstly, the Casdoor should be deployed.
+| Page                 | Shiro filter | Description                                              |
+|----------------------|--------------|----------------------------------------------------------|
+| `/`                  | `anon`       | Welcome page with a **Login with Casdoor** button        |
+| `/login`             | `anon`       | Redirects to the Casdoor sign-in page                    |
+| `/login/oauth2`      | `anon`       | Casdoor redirects back here with `code` and `state`      |
+| `/foos`              | `authc`      | Protected page, shows some data and the signed-in user   |
+| `/logout` (POST)     | `authc`      | Signs out of the app and ends the Casdoor session        |
 
-You can refer to the Casdoor official documentation for the [Server Installation](https://casdoor.org/docs/basic/server-installation).
+![foos](doc/foos.png)
 
-After a successful deployment, you need to ensure:
+## How it works
 
-- The Casdoor server is successfully running on **http://localhost:8000**.
-- Open your favorite browser and visit **http://localhost:7001**, you will see the login page of Casdoor.
-- Input `admin` and `123` to test login functionality is working fine.
+1. Opening `/foos` without signing in: the `authc` filter sends the user to `shiro.loginUrl`, i.e. `/login`.
+2. `/login` keeps a random `state` in the session and redirects to the Casdoor sign-in page (`AuthService.getSigninUrl()`).
+3. Casdoor redirects back to `/login/oauth2?code=...&state=...`. The controller checks the state, exchanges the code for an access token (`AuthService.getOAuthToken()`) and signs in to Shiro with it: `subject.login(new BearerToken(token))`.
+4. [CasdoorShiroRealm](src/main/java/com/casbin/shiro/example/config/CasdoorShiroRealm.java) verifies the token, a JWT, with the certificate of the application (`AuthService.parseJwtToken()`). The principal is the Casdoor `User`, and its Casdoor roles become Shiro roles, so `subject.hasRole("...")` and `@RequiresRoles` work.
+5. `POST /logout` calls Casdoor's logout API with the access token (`AuthService.logoutCurrentSession()`) and `subject.logout()`.
 
-Then you can quickly implement a Casdoor based login page in your own app with the following steps.
+`AuthService` comes from casdoor-spring-boot-starter, configured by the `casdoor.*` properties.
 
-## Step2. Configure Casdoor application
+## Prerequisites
 
-1. Create or use an existing Casdoor application.
-2. Add Your redirect url
+- Java 17+
+- Maven 3.9+ (or `./mvnw`)
+- A Casdoor server. The example is preconfigured for the public demo server https://door.casdoor.com, so it runs as is. To use your own, see [Casdoor installation](https://casdoor.ai/docs/basic/server-installation).
 
-![](doc/redirect.png)
+## Configuration
 
-3. Add provider you want and supplement other settings.
+Skip this section to try the example with the public demo server.
 
-Not surprisingly, you can get two values on the application settings page: `Client ID` and `Client secret` like the picture above, we will use them in next step.
+In your Casdoor, create (or reuse) an organization and an application, and add `http://localhost:8080/login/oauth2` to the application's **Redirect URLs**:
 
-Open your favorite browser and visit: **http://CASDOOR_HOSTNAME/.well-known/openid-configuration**, you will see the OIDC configure of Casdoor.
+![redirect](doc/redirect.png)
 
-## Step3. Configure Shiro
+Then fill in [application.yml](src/main/resources/application.yml):
 
-Shiro doesn't support OIDC natively. But you can use [casdoor-spring-boot-starter](https://github.com/casdoor/casdoor-spring-boot-starter) to communicate with Casdoor.
-
-```yml
+```yaml
 shiro:
   web:
     enabled: true
   loginUrl: /login
+
 casdoor:
-  endpoint: http://localhost:8000
-  client-id: <Client ID>
-  client-secret: <Client Secret>
-  jwt-public-key: <JWT Public Key>
-  organization-name: built-in
-  application-name: <Application Name>
+  endpoint: https://door.casdoor.com          # Casdoor server URL
+  client-id: 294b09fbc17f95daf2fe             # client ID of the application
+  client-secret: dd8982f7046ccba1bbd7851d5c1ece4e52bf039d  # client secret of the application
+  certificate: |                              # the certificate of the cert used by the application, see Casdoor -> Certs
+    -----BEGIN CERTIFICATE-----
+    ...
+    -----END CERTIFICATE-----
+  organization-name: casbin                   # organization of the application
+  application-name: app-vue-python-example    # name of the application
+  redirect-url: http://localhost:8080/login/oauth2
 ```
 
-## Step4. Get Started with A Demo
+Shiro 2 runs on Spring Boot 3 (Jakarta EE) through the `jakarta` classifier of `shiro-spring-boot-starter`, `shiro-spring` and `shiro-web`, see [pom.xml](pom.xml).
 
-1. We can create a Spring Boot application.
-2. We can add a configuration which protects all endpoints except `/login`, `/login/oauth2` and `/index` for users to log in.
+## Run
 
-```java
-@Bean
-public ShiroFilterChainDefinition shiroFilterChainDefinition() {
-    DefaultShiroFilterChainDefinition chainDefinition = new DefaultShiroFilterChainDefinition();
-    chainDefinition.addPathDefinition("/login", "anon");
-    chainDefinition.addPathDefinition("/login/oauth2", "anon");
-    chainDefinition.addPathDefinition("/index", "anon");
-    // all other paths require a logged in user
-    chainDefinition.addPathDefinition("/**", "authc");
-    return chainDefinition;
-}
+```shell
+git clone https://github.com/casdoor/casdoor-spring-boot-shiro-example
+cd casdoor-spring-boot-shiro-example
+mvn spring-boot:run
 ```
 
-3. Init the shiro-casdoor middleware and config `DefaultWebSecurityManager` as below.
+Open http://localhost:8080 and click **Login with Casdoor**. On the demo server, sign in with username `admin` and password `123`.
 
-```java
-@Resource
-private CasdoorConfig casdoorConfig;
+Run the tests:
 
-@Bean
-CasdoorShiroRealm simpleAccountRealm() {
-    return new CasdoorShiroRealm(
-        casdoorConfig.getEndpoint(),
-        casdoorConfig.getClientId(),
-        casdoorConfig.getClientSecret(),
-        casdoorConfig.getJwtPublicKey(),
-        casdoorConfig.getOrganizationName(),
-        casdoorConfig.getApplicationName()
-    );
-}
-
-@Bean
-public DefaultWebSecurityManager securityManager(CasdoorShiroRealm accountRealm) {
-    DefaultWebSecurityManager securityManager = new DefaultWebSecurityManager();
-    securityManager.setRealm(accountRealm);
-    return securityManager;
-}
+```shell
+mvn verify
 ```
 
-4. Next, we can add two APIs for authentication.
+## Resources
 
-```java
-@RequestMapping("/login")
-public String login() throws UnsupportedEncodingException {
-    return "redirect:" + casdoorAuthService.getSigninUrl("http://localhost:8080/login/oauth2");
-}
+- [Casdoor documentation](https://casdoor.ai/docs/overview)
+- [casdoor-spring-boot-starter](https://github.com/casdoor/casdoor-spring-boot-starter)
+- [Apache Shiro with Spring Boot](https://shiro.apache.org/spring-boot.html)
 
-@RequestMapping("/login/oauth2")
-public String doLogin(String code, String state) throws OAuthProblemException, OAuthSystemException {
-    String token = casdoorAuthService.getOAuthToken(code, state);
-    BearerToken bearerToken = new BearerToken(token);
-    SecurityUtils.getSubject().login(bearerToken);
-    return "redirect:http://localhost:8080/foos";
-}
-```
+## License
 
-5. We can add a naive page for user to log in.
-
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-    <title>Spring OAuth Client Thymeleaf - 1</title>
-    <link rel="stylesheet"
-          href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"/>
-</head>
-<body>
-<nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm p-3 mb-5">
-    <a class="navbar-brand" th:href="@{/foos/}">Spring OAuth Client Thymeleaf - 1</a>
-</nav>
-<div class="container">
-    <label>Welcome ! </label> <br/> <a th:href="@{/foos/}"
-                                       class="btn btn-primary">Login</a>
-</div>
-</body>
-</html>
-```
-
-When user clicks the `login` button, he will be redirected to Casdoor.
-
-6. Next, we can define our protected resource. We can export an endpoint called `/foos` and a web page for display.
-
-Data Model
-
-```java
-public class FooModel {
-    private Long id;
-    private String name;
-
-    public FooModel(Long id, String name) {
-        super();
-        this.id = id;
-        this.name = name;
-    }
-    public Long getId() {
-        return id;
-    }
-    public void setId(Long id) {
-        this.id = id;
-    }
-    public String getName() {
-        return name;
-    }
-    public void setName(String name) {
-        this.name = name;
-    }
-}
-```
-
-Controller
-
-```java
-@GetMapping("/foos")
-public String getFoos(Model model) {
-    List<FooModel> foos = new ArrayList<>();
-    foos.add(new FooModel(1L, "a"));
-    foos.add(new FooModel(2L, "b"));
-    foos.add(new FooModel(3L, "c"));
-    model.addAttribute("foos", foos);
-    return "foos";
-}
-```
-
-Web page
-
-```html
-<!DOCTYPE html>
-<html lang="en" xmlns:sec="http://www.w3.org/1999/xhtml">
-<head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-    <title>Spring OAuth Client Thymeleaf - 1</title>
-    <link rel="stylesheet"
-          href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"/>
-</head>
-<body>
-<nav
-        class="navbar navbar-expand-lg navbar-light bg-light shadow-sm p-3 mb-5">
-    <a class="navbar-brand" th:href="@{/foos/}">Spring OAuth Client
-        Thymeleaf -1</a>
-    <ul class="navbar-nav ml-auto">
-        <li class="navbar-text">Hi, <span th:text="${session.name}"></span>&nbsp;&nbsp;&nbsp;
-        </li>
-    </ul>
-</nav>
-<div class="container">
-    <h1>All Foos:</h1>
-    <table class="table table-bordered table-striped">
-        <thead>
-        <tr>
-            <td>ID</td>
-            <td>Name</td>
-        </tr>
-        </thead>
-        <tbody>
-        <tr th:if="${foos.empty}">
-            <td colspan="4">No foos</td>
-        </tr>
-        <tr th:each="foo : ${foos}">
-            <td><span th:text="${foo.id}"> ID </span></td>
-            <td><span th:text="${foo.name}"> Name </span></td>
-        </tr>
-        </tbody>
-    </table>
-</div>
-</body>
-</html>
-```
-
-## Step5. Try the demo!
-
-Firstly, you can try to open your favorite browser and directly visit `/foos`. It will automatically redirect to Casdoor's login page. You can log in here or from the root page.
-
-If you visit your index page,
-
-![](doc/index.png)
-
-Click the `login` button and the page will redirect to Casdoor's login page.
-
-![](doc/login.png)
-
-After you log in, the page will redirect to `/foos`.
-
-![](doc/foos.png)
+[Apache-2.0](LICENSE)
