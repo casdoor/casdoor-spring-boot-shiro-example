@@ -5,6 +5,7 @@ import org.apache.shiro.authz.ModularRealmAuthorizer;
 import org.apache.shiro.spring.web.config.DefaultShiroFilterChainDefinition;
 import org.apache.shiro.spring.web.config.ShiroFilterChainDefinition;
 import org.casbin.casdoor.service.AuthService;
+import org.casbin.casdoor.shiro.CasdoorShiroRealm;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 

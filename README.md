@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/github/license/casdoor/casdoor-spring-boot-shiro-example)](https://github.com/casdoor/casdoor-spring-boot-shiro-example/blob/master/LICENSE)
 [![Discord](https://img.shields.io/discord/1022748306096537660?logo=discord&label=discord&color=5865F2)](https://discord.gg/5rPsrAzK7S)
 
-An example [Apache Shiro](https://shiro.apache.org/) app on Spring Boot 3 that signs users in with [Casdoor](https://casdoor.ai/), using [casdoor-spring-boot-starter](https://github.com/casdoor/casdoor-spring-boot-starter).
+An example [Apache Shiro](https://shiro.apache.org/) app on Spring Boot 3 that signs users in with [Casdoor](https://casdoor.ai/), using [casdoor-spring-boot-starter](https://github.com/casdoor/casdoor-spring-boot-starter) and [shiro-casdoor](https://github.com/casdoor/shiro-casdoor).
 
 | Page                 | Shiro filter | Description                                              |
 |----------------------|--------------|----------------------------------------------------------|
@@ -21,7 +21,7 @@ An example [Apache Shiro](https://shiro.apache.org/) app on Spring Boot 3 that s
 1. Opening `/foos` without signing in: the `authc` filter sends the user to `shiro.loginUrl`, i.e. `/login`.
 2. `/login` keeps a random `state` in the session and redirects to the Casdoor sign-in page (`AuthService.getSigninUrl()`).
 3. Casdoor redirects back to `/login/oauth2?code=...&state=...`. The controller checks the state, exchanges the code for an access token (`AuthService.getOAuthToken()`) and signs in to Shiro with it: `subject.login(new BearerToken(token))`.
-4. [CasdoorShiroRealm](src/main/java/com/casbin/shiro/example/config/CasdoorShiroRealm.java) verifies the token, a JWT, with the certificate of the application (`AuthService.parseJwtToken()`). The principal is the Casdoor `User`, and its Casdoor roles become Shiro roles, so `subject.hasRole("...")` and `@RequiresRoles` work.
+4. `CasdoorShiroRealm` of [shiro-casdoor](https://github.com/casdoor/shiro-casdoor) verifies the token, a JWT, with the certificate of the application (`AuthService.parseJwtToken()`). The principal is the Casdoor `User`. Its Casdoor roles become Shiro roles and its Casdoor permissions become Shiro permissions `<resource>:<action>`, so `subject.hasRole("...")`, `subject.isPermitted("...")`, `@RequiresRoles` and `@RequiresPermissions` work.
 5. `POST /logout` calls Casdoor's logout API with the access token (`AuthService.logoutCurrentSession()`) and `subject.logout()`.
 
 `AuthService` comes from casdoor-spring-boot-starter, configured by the `casdoor.*` properties.
@@ -83,6 +83,7 @@ mvn verify
 
 - [Casdoor documentation](https://casdoor.ai/docs/overview)
 - [casdoor-spring-boot-starter](https://github.com/casdoor/casdoor-spring-boot-starter)
+- [shiro-casdoor](https://github.com/casdoor/shiro-casdoor)
 - [Apache Shiro with Spring Boot](https://shiro.apache.org/spring-boot.html)
 
 ## License

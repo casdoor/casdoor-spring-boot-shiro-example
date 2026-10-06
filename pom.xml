@@ -31,6 +31,11 @@
             <artifactId>casdoor-spring-boot-starter</artifactId>
             <version>2.0.1</version>
         </dependency>
+        <dependency>
+            <groupId>org.casbin</groupId>
+            <artifactId>shiro-casdoor</artifactId>
+            <version>2.0.1</version>
+        </dependency>
 
         <!-- Shiro for Jakarta EE (Spring Boot 3): the "jakarta" classifier of the starter and of its web modules -->
         <dependency>
